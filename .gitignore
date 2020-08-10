@@ -13,6 +13,15 @@
 *.nar
 hs_err_pid*
 
+## IntelliJ
+##############################
+out/
+.idea/
+.idea_modules/
+*.iml
+*.ipr
+*.iws
+
 ##############################
 ## Visual Studio Code
 ##############################
