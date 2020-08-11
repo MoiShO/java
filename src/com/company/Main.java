@@ -6,9 +6,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
     private static final ArrayList<CurrencyAmount> arrayCurrencyAmount = new ArrayList<>();
@@ -19,32 +16,41 @@ public class Main {
         /*
         Запускаем таймер печати в Terminal
          */
-        runTimerTerminalPrinter();
+        Thread printer = startTerminalPrinter();
 
         /*
-        Пробуем прочитать из файла
+        Если есть аргумент при запуске программы
          */
-        readFromFile(args);
+        if(args.length > 0) {
+            readFromFile(args[0]);
+        }
 
         /*
         Слушаем Terminal
          */
         readFromCMD();
+
+        /*
+        завершаем выполнение
+         */
+        printer.interrupt();
     }
 
     /**
      *
-     * @param runArgs аргументы указанные при запуске
+     * @param fileName имя файла с расширением
      * @throws IOException
      */
 
-    private static void readFromFile(String [] runArgs) throws IOException {
-        if(runArgs.length > 0) {
+    private static void readFromFile(String fileName) throws IOException {
             /*
             Читаем данные из файла
              */
             String basePath = System.getProperty("user.dir");
-            BufferedReader objReader = new BufferedReader(new FileReader(basePath+"\\"+runArgs[0]));
+            try (BufferedReader objReader = new BufferedReader(
+                    new FileReader(basePath + "\\" + fileName)
+            )) {
+
             String strCurrentLine;
             while ((strCurrentLine = objReader.readLine()) != null) {
                 addCurrencyAmount(strCurrentLine);
@@ -56,8 +62,10 @@ public class Main {
      * Читает input в Terminal
      * @throws IOException
      */
-    private static void readFromCMD() throws IOException {
-        while(true) {
+    private static void readFromCMD() throws IOException{
+        boolean isStopRequested = false;
+
+        while(!isStopRequested) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             String inputVal = reader.readLine();
 
@@ -65,20 +73,22 @@ public class Main {
             Выход из программы
              */
             if (inputVal.equals("quit")) {
-                System.exit(0);
-            }
+                reader.close();
+                isStopRequested = true;
 
-            addCurrencyAmount(inputVal);
+            } else  {
+                addCurrencyAmount(inputVal);
+            }
         }
     }
 
     /**
      * Запуск таймера печати в Terminal
      */
-    private static void runTimerTerminalPrinter() {
-        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        PrintCurrencyAmount timer = new PrintCurrencyAmount(arrayCurrencyAmount);
-        scheduler.scheduleAtFixedRate(timer, 0, 10, TimeUnit.SECONDS);
+    private static Thread startTerminalPrinter() {
+        Thread printInTerminal = new PrintCurrencyAmount(arrayCurrencyAmount);
+        printInTerminal.start();
+        return printInTerminal;
     }
 
     /**
@@ -96,7 +106,7 @@ public class Main {
                     "0.25 - optional rated to USD\n" +
                     "quit - program exit");
         } else {
-            try{
+            try {
                 String currency = currencyAmount[0].toUpperCase();
                 int amount = Integer.parseInt(currencyAmount[1]);
                 double rateToUSD = currencyAmount.length >= 3 ? Double.parseDouble(currencyAmount[2]) : 0;
@@ -108,10 +118,10 @@ public class Main {
                         .stream().parallel()
                         .filter(cA -> cA.getCurrency().equals(currency)).findFirst();
 
-                   /*
-                   Если в arrayCurrencyAmount уже имеется такая валюта
-                    */
-                if(result.isPresent()) {
+               /*
+               Если в arrayCurrencyAmount уже имеется такая валюта
+                */
+                if (result.isPresent()) {
                     CurrencyAmount currentCurrencyAmount = result.get();
                     int sumAmount = amount + currentCurrencyAmount.getAmount();
 
@@ -129,8 +139,8 @@ public class Main {
                     arrayCurrencyAmount.add(new CurrencyAmount(currency, amount, rateToUSD));
                 }
 
-            } catch (Throwable e){
-                throw new IllegalArgumentException(e.toString());
+            } catch (Exception ex) {
+                System.err.println(ex.toString());
             }
         }
     }

@@ -39,6 +39,6 @@ public class CurrencyAmount {
                    + "(USD " + df.format(amount / rateToUSD) + ")";
         }
 
-        return currency + " " + amount;
+        return "· " + currency + " " + amount;
     }
 }
