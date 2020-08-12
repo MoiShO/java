@@ -17,10 +17,6 @@ public class CurrencyAmount {
         return amount;
     }
 
-    public String getCurrency() {
-        return currency;
-    }
-
     public void setAmount(int amount) {
         this.amount = amount;
     }

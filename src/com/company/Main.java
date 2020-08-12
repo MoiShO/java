@@ -4,11 +4,11 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Optional;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Main {
-    private static final ArrayList<CurrencyAmount> arrayCurrencyAmount = new ArrayList<>();
+    private static final Map<String, CurrencyAmount> mapCurrencyAmount = new TreeMap();
 
     public static void main(String[] args) throws IOException {
         System.out.println("Write a currency and amount separated whitespace" +
@@ -16,7 +16,7 @@ public class Main {
         /*
         Запускаем таймер печати в Terminal
          */
-        Thread printer = startTerminalPrinter();
+        startTerminalPrinter();
 
         /*
         Если есть аргумент при запуске программы
@@ -29,11 +29,6 @@ public class Main {
         Слушаем Terminal
          */
         readFromCMD();
-
-        /*
-        завершаем выполнение
-         */
-        printer.interrupt();
     }
 
     /**
@@ -63,32 +58,50 @@ public class Main {
      * @throws IOException
      */
     private static void readFromCMD() throws IOException{
-        boolean isStopRequested = false;
 
-        while(!isStopRequested) {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            String inputVal = reader.readLine();
+        Thread inputThread = new Thread() {
+            final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
-            /*
-            Выход из программы
-             */
-            if (inputVal.equals("quit")) {
-                reader.close();
-                isStopRequested = true;
+            @Override
+            public void run() {
+                try {
+                    while (!Thread.interrupted()) {
+                        String inputVal = reader.readLine();
 
-            } else  {
-                addCurrencyAmount(inputVal);
+                        Thread.yield(); //Передать управление другим потокам
+
+                        /*
+                        Выход из программы
+                         */
+                        if (inputVal.equals("quit")) {
+                            reader.close();
+                            Thread.currentThread().interrupt();
+
+                        } else {
+                            synchronized (mapCurrencyAmount) {
+                                addCurrencyAmount(inputVal);
+                            }
+                        }
+                    }
+                } catch (IOException ex) {
+                    System.err.println(ex.toString());
+                }
             }
-        }
+        };
+
+        inputThread.start();
     }
 
     /**
      * Запуск таймера печати в Terminal
      */
-    private static Thread startTerminalPrinter() {
-        Thread printInTerminal = new PrintCurrencyAmount(arrayCurrencyAmount);
+    private static void startTerminalPrinter() {
+        Thread printInTerminal = new PrintCurrencyAmount(mapCurrencyAmount);
+        /*
+        ничего лучше что бы поток откинулся я не придумал :( (не нашел)
+         */
+        printInTerminal.setDaemon(true);
         printInTerminal.start();
-        return printInTerminal;
     }
 
     /**
@@ -114,29 +127,27 @@ public class Main {
                 /*
                 Находим текущую Валюту что бы преобразовать
                  */
-                Optional<CurrencyAmount> result = arrayCurrencyAmount
-                        .stream().parallel()
-                        .filter(cA -> cA.getCurrency().equals(currency)).findFirst();
+                CurrencyAmount result = mapCurrencyAmount.get(currency);
 
                /*
-               Если в arrayCurrencyAmount уже имеется такая валюта
+               Если в mapCurrencyAmount уже имеется такая валюта
                 */
-                if (result.isPresent()) {
-                    CurrencyAmount currentCurrencyAmount = result.get();
-                    int sumAmount = amount + currentCurrencyAmount.getAmount();
+                if (result != null) {
+                    int currentAmount = result.getAmount();
+                    int sumAmount = amount + currentAmount;
 
                     if (sumAmount == 0) {
-                        arrayCurrencyAmount.remove(currentCurrencyAmount);
+                        mapCurrencyAmount.remove(currency);
 
                     } else {
-                        currentCurrencyAmount.setAmount(amount + currentCurrencyAmount.getAmount());
+                        result.setAmount(amount + currentAmount);
                         if (rateToUSD != 0.0) {
-                            currentCurrencyAmount.setRateToUSD(rateToUSD);
+                            result.setRateToUSD(rateToUSD);
                         }
                     }
 
                 } else {
-                    arrayCurrencyAmount.add(new CurrencyAmount(currency, amount, rateToUSD));
+                    mapCurrencyAmount.put(currency, new CurrencyAmount(currency, amount, rateToUSD));
                 }
 
             } catch (Exception ex) {
