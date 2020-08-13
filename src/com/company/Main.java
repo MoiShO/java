@@ -55,9 +55,8 @@ public class Main {
 
     /**
      * Читает input в Terminal
-     * @throws IOException
      */
-    private static void readFromCMD() throws IOException{
+    private static void readFromCMD() {
 
         Thread inputThread = new Thread() {
             final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
@@ -97,9 +96,6 @@ public class Main {
      */
     private static void startTerminalPrinter() {
         Thread printInTerminal = new PrintCurrencyAmount(mapCurrencyAmount);
-        /*
-        ничего лучше что бы поток откинулся я не придумал :( (не нашел)
-         */
         printInTerminal.setDaemon(true);
         printInTerminal.start();
     }
@@ -140,8 +136,8 @@ public class Main {
                         mapCurrencyAmount.remove(currency);
 
                     } else {
-                        result.setAmount(amount + currentAmount);
-                        if (rateToUSD != 0.0) {
+                        result.setAmount(sumAmount);
+                        if (Math.abs(rateToUSD) < Constants.THRESHOLD) {
                             result.setRateToUSD(rateToUSD);
                         }
                     }
